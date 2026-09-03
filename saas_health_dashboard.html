@@ -1,0 +1,283 @@
+
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  .db{padding:1rem 0;font-family:var(--font-sans)}
+  .q{font-size:13px;color:var(--text-muted);margin-bottom:4px}
+  .h1{font-size:20px;font-weight:500;color:var(--text-primary);margin-bottom:16px}
+  .filters{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:20px;align-items:center}
+  .filters label{font-size:12px;color:var(--text-secondary)}
+  .filters select{font-size:12px;padding:4px 8px;border-radius:var(--radius);border:0.5px solid var(--border-strong);background:var(--surface-2);color:var(--text-primary);cursor:pointer}
+  .kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:20px}
+  .kpi{background:var(--surface-1);border-radius:var(--radius);padding:14px 16px}
+  .kpi-label{font-size:11px;color:var(--text-muted);margin-bottom:6px}
+  .kpi-val{font-size:22px;font-weight:500;color:var(--text-primary);line-height:1}
+  .kpi-delta{font-size:11px;margin-top:4px}
+  .kpi-delta.up{color:var(--text-success)}
+  .kpi-delta.down{color:var(--text-danger)}
+  .charts{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);gap:12px;margin-bottom:12px}
+  .chart-card{background:var(--surface-1);border-radius:12px;padding:14px 16px}
+  .chart-title{font-size:13px;font-weight:500;color:var(--text-primary);margin-bottom:12px}
+  .chart-sub{font-size:11px;color:var(--text-muted);margin-bottom:10px}
+  .bottom{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px}
+  canvas{display:block}
+  .legend{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:8px}
+  .leg-item{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text-secondary)}
+  .leg-sq{width:10px;height:10px;border-radius:2px;flex-shrink:0}
+  .cohort-grid{width:100%;border-collapse:collapse;font-size:11px}
+  .cohort-grid th{font-weight:500;color:var(--text-muted);text-align:center;padding:3px 4px;font-size:10px}
+  .cohort-grid td{text-align:center;padding:3px 4px;border-radius:3px;font-size:11px;color:var(--text-primary)}
+  .segment-row{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:0.5px solid var(--border)}
+  .segment-row:last-child{border-bottom:none}
+  .seg-name{font-size:12px;color:var(--text-primary);width:70px;flex-shrink:0}
+  .seg-bar-wrap{flex:1;background:var(--border);border-radius:2px;height:6px;overflow:hidden}
+  .seg-bar{height:100%;border-radius:2px;transition:width .3s}
+  .seg-val{font-size:11px;color:var(--text-secondary);width:40px;text-align:right;flex-shrink:0}
+</style>
+
+<div class="db">
+  <p class="q">Recurring question this dashboard answers:</p>
+  <p class="h1">Is our SaaS business getting healthier this month?</p>
+
+  <div class="filters">
+    <label>Segment</label>
+    <select id="seg-filter" onchange="render()">
+      <option value="all">All customers</option>
+      <option value="smb">SMB</option>
+      <option value="mid">Mid-market</option>
+      <option value="ent">Enterprise</option>
+    </select>
+    <label style="margin-left:8px">Plan</label>
+    <select id="plan-filter" onchange="render()">
+      <option value="all">All plans</option>
+      <option value="starter">Starter</option>
+      <option value="growth">Growth</option>
+      <option value="pro">Pro</option>
+    </select>
+    <label style="margin-left:8px">Period</label>
+    <select id="period-filter" onchange="render()">
+      <option value="6">Last 6 months</option>
+      <option value="12" selected>Last 12 months</option>
+      <option value="18">Last 18 months</option>
+    </select>
+  </div>
+
+  <div class="kpis">
+    <div class="kpi"><div class="kpi-label">MRR</div><div class="kpi-val" id="kpi-mrr">—</div><div class="kpi-delta" id="kpi-mrr-d">—</div></div>
+    <div class="kpi"><div class="kpi-label">Monthly churn</div><div class="kpi-val" id="kpi-churn">—</div><div class="kpi-delta" id="kpi-churn-d">—</div></div>
+    <div class="kpi"><div class="kpi-label">Net revenue retention</div><div class="kpi-val" id="kpi-nrr">—</div><div class="kpi-delta" id="kpi-nrr-d">—</div></div>
+    <div class="kpi"><div class="kpi-label">Active customers</div><div class="kpi-val" id="kpi-cust">—</div><div class="kpi-delta" id="kpi-cust-d">—</div></div>
+  </div>
+
+  <div class="charts">
+    <div class="chart-card">
+      <div class="chart-title">MRR breakdown</div>
+      <div class="legend">
+        <span class="leg-item"><span class="leg-sq" style="background:#2a78d6"></span>New MRR</span>
+        <span class="leg-item"><span class="leg-sq" style="background:#1baf7a"></span>Expansion</span>
+        <span class="leg-item"><span class="leg-sq" style="background:#e34948"></span>Churned</span>
+        <span class="leg-item"><span class="leg-sq" style="background:#888880;opacity:.5"></span>Net MRR</span>
+      </div>
+      <div style="position:relative;width:100%;height:200px"><canvas id="mrr-chart" role="img" aria-label="Stacked bar chart showing MRR breakdown by month"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">Churn &amp; NRR trend</div>
+      <div style="position:relative;width:100%;height:218px"><canvas id="churn-chart" role="img" aria-label="Line chart of churn rate and net revenue retention over time"></canvas></div>
+    </div>
+  </div>
+
+  <div class="bottom">
+    <div class="chart-card">
+      <div class="chart-title">Cohort retention</div>
+      <div class="chart-sub">% of month-0 revenue still active by month</div>
+      <div id="cohort-wrap" style="overflow-x:auto"></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">MRR by segment</div>
+      <div id="seg-bars"></div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+const isDark = document.documentElement.dataset.mode === 'dark' || (!document.documentElement.dataset.mode && matchMedia('(prefers-color-scheme:dark)').matches);
+const gridC = isDark ? '#2c2c2a' : '#e1e0d9';
+const tickC = isDark ? '#898781' : '#898781';
+
+function seed(s){let x=Math.sin(s)*10000;return x-Math.floor(x)}
+function rng(s,min,max){return min+(max-min)*seed(s)}
+
+const MONTHS = ['Aug','Sep','Oct','Nov','Dec','Jan','Feb','Mar','Apr','May','Jun','Jul'];
+const MONTHS_FULL = ['Aug 24','Sep 24','Oct 24','Nov 24','Dec 24','Jan 25','Feb 25','Mar 25','Apr 25','May 25','Jun 25','Jul 25'];
+const MONTHS_18 = ['Feb 24','Mar 24','Apr 24','May 24','Jun 24','Jul 24','Aug 24','Sep 24','Oct 24','Nov 24','Dec 24','Jan 25','Feb 25','Mar 25','Apr 25','May 25','Jun 25','Jul 25'];
+
+const SEGMENTS = {smb:{mult:0.55,name:'SMB',color:'#2a78d6'},mid:{mult:0.95,name:'Mid-market',color:'#1baf7a'},ent:{mult:1.4,name:'Enterprise',color:'#eb6834'}};
+const PLANS = {starter:{mult:0.6},growth:{mult:0.95},pro:{mult:1.5}};
+
+function getMultiplier(){
+  const seg = document.getElementById('seg-filter').value;
+  const plan = document.getElementById('plan-filter').value;
+  const sm = seg==='all'?1:SEGMENTS[seg].mult;
+  const pm = plan==='all'?1:PLANS[plan].mult;
+  return sm*pm;
+}
+
+function getData(){
+  const period = +document.getElementById('period-filter').value;
+  const mult = getMultiplier();
+  const months = period===18?MONTHS_18:period===6?MONTHS_FULL.slice(-6):MONTHS_FULL;
+  const n = months.length;
+  let newMrr=[],exp=[],churned=[],net=[],churnRate=[],nrr=[];
+  let baseMrr = 68000*mult;
+  for(let i=0;i<n;i++){
+    const gi = (period===18?i:i+(12-n));
+    const nm = Math.round(baseMrr*(0.06+rng(i*7+1,0,0.04))*mult);
+    const ex = Math.round(baseMrr*(0.025+rng(i*13+2,0,0.015))*mult);
+    const ch = Math.round(baseMrr*(0.025+rng(i*11+3,0,0.01))*mult);
+    newMrr.push(nm); exp.push(ex); churned.push(ch);
+    net.push(nm+ex-ch);
+    baseMrr = Math.max(baseMrr+nm+ex-ch,20000);
+    churnRate.push(+(ch/(baseMrr||1)*100).toFixed(1));
+    nrr.push(+Math.min(((baseMrr+ex-ch)/(baseMrr||1)*100),132).toFixed(1));
+  }
+  return {months,newMrr,exp,churned,net,churnRate,nrr,baseMrr:Math.round(baseMrr)};
+}
+
+let mrrChart=null,churnChart=null;
+
+function fmtMrr(v){return v>=1000000?'$'+(v/1000000).toFixed(2)+'M':'$'+(v/1000).toFixed(0)+'k'}
+function fmtPct(v){return v+'%'}
+
+function renderKPIs(d){
+  const n=d.newMrr.length;
+  const prevMrr = d.baseMrr - d.net[n-1];
+  const mDelta = Math.round((d.baseMrr-prevMrr)/prevMrr*100);
+  document.getElementById('kpi-mrr').textContent = fmtMrr(d.baseMrr);
+  document.getElementById('kpi-mrr-d').className='kpi-delta '+(mDelta>=0?'up':'down');
+  document.getElementById('kpi-mrr-d').textContent=(mDelta>=0?'↑':'↓')+Math.abs(mDelta)+'% vs last month';
+
+  const lastChurn = d.churnRate[n-1];
+  const prevChurn = d.churnRate[n-2]||lastChurn;
+  document.getElementById('kpi-churn').textContent = lastChurn+'%';
+  document.getElementById('kpi-churn-d').className='kpi-delta '+(lastChurn<=prevChurn?'up':'down');
+  document.getElementById('kpi-churn-d').textContent=(lastChurn<=prevChurn?'↓':'↑')+Math.abs(+(lastChurn-prevChurn).toFixed(1))+'pp vs last month';
+
+  const lastNrr = d.nrr[n-1];
+  const prevNrr = d.nrr[n-2]||lastNrr;
+  document.getElementById('kpi-nrr').textContent = lastNrr+'%';
+  document.getElementById('kpi-nrr-d').className='kpi-delta '+(lastNrr>=prevNrr?'up':'down');
+  document.getElementById('kpi-nrr-d').textContent=(lastNrr>=prevNrr?'↑':'↓')+Math.abs(+(lastNrr-prevNrr).toFixed(1))+'pp vs last month';
+
+  const mult = getMultiplier();
+  const cust = Math.round(480*mult);
+  const custPrev = Math.round(cust*0.95);
+  document.getElementById('kpi-cust').textContent = cust.toLocaleString();
+  document.getElementById('kpi-cust-d').className='kpi-delta up';
+  document.getElementById('kpi-cust-d').textContent='↑'+Math.round((cust-custPrev)/custPrev*100)+'% vs last month';
+}
+
+function renderMrrChart(d){
+  if(mrrChart){mrrChart.destroy();mrrChart=null;}
+  const ctx=document.getElementById('mrr-chart').getContext('2d');
+  mrrChart=new Chart(ctx,{
+    type:'bar',
+    data:{
+      labels:d.months,
+      datasets:[
+        {label:'New MRR',data:d.newMrr,backgroundColor:'#2a78d6',borderRadius:3,stack:'s'},
+        {label:'Expansion',data:d.exp,backgroundColor:'#1baf7a',borderRadius:3,stack:'s'},
+        {label:'Churned',data:d.churned.map(v=>-v),backgroundColor:'#e34948',borderRadius:3,stack:'s'},
+        {label:'Net MRR',data:d.net,type:'line',borderColor:'#888880',backgroundColor:'transparent',borderWidth:2,pointRadius:3,pointBackgroundColor:'#888880',tension:.3,stack:undefined,yAxisID:'y'},
+      ]
+    },
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>{const v=Math.abs(ctx.raw);return ctx.dataset.label+': $'+(v/1000).toFixed(1)+'k';}}}},
+      scales:{
+        x:{grid:{color:gridC},ticks:{color:tickC,font:{size:10}},stacked:true},
+        y:{grid:{color:gridC},ticks:{color:tickC,font:{size:10},callback:v=>'$'+(Math.abs(v)/1000).toFixed(0)+'k'},stacked:true}
+      }
+    }
+  });
+}
+
+function renderChurnChart(d){
+  if(churnChart){churnChart.destroy();churnChart=null;}
+  const ctx=document.getElementById('churn-chart').getContext('2d');
+  churnChart=new Chart(ctx,{
+    type:'line',
+    data:{
+      labels:d.months,
+      datasets:[
+        {label:'Churn %',data:d.churnRate,borderColor:'#e34948',backgroundColor:'transparent',borderWidth:2,pointRadius:3,pointBackgroundColor:'#e34948',tension:.3,yAxisID:'y1'},
+        {label:'NRR %',data:d.nrr,borderColor:'#1baf7a',backgroundColor:'transparent',borderWidth:2,pointRadius:3,pointBackgroundColor:'#1baf7a',tension:.3,yAxisID:'y2',borderDash:[4,3]},
+      ]
+    },
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      plugins:{
+        legend:{display:false},
+        tooltip:{callbacks:{label:ctx=>ctx.dataset.label+': '+ctx.raw+'%'}}
+      },
+      scales:{
+        x:{grid:{color:gridC},ticks:{color:tickC,font:{size:10}}},
+        y1:{position:'left',grid:{color:gridC},ticks:{color:'#e34948',font:{size:10},callback:v=>v+'%'},title:{display:true,text:'Churn',color:tickC,font:{size:10}}},
+        y2:{position:'right',grid:{display:false},ticks:{color:'#1baf7a',font:{size:10},callback:v=>v+'%'},title:{display:true,text:'NRR',color:tickC,font:{size:10}}}
+      }
+    }
+  });
+}
+
+function renderCohort(){
+  const mult = getMultiplier();
+  const cohorts=['Feb','Mar','Apr','May','Jun','Jul'];
+  const months=[0,1,2,3,4,5];
+  const retBase=[[100,88,81,75,71,68],[100,90,83,77,73,null],[100,87,80,74,null,null],[100,91,84,null,null,null],[100,89,null,null,null,null],[100,null,null,null,null,null]];
+  const seg = document.getElementById('seg-filter').value;
+  const segAdj = seg==='ent'?4:seg==='mid'?0:seg==='smb'?-4:0;
+  let html='<table class="cohort-grid"><thead><tr><th>Cohort</th>';
+  months.forEach(m=>html+=`<th>M${m}</th>`);
+  html+='</tr></thead><tbody>';
+  cohorts.forEach((c,ci)=>{
+    html+=`<tr><td style="text-align:left;color:var(--text-secondary);font-size:10px">${c}</td>`;
+    months.forEach((_,mi)=>{
+      const v=retBase[ci][mi];
+      if(v===null){html+='<td style="color:var(--text-muted)">—</td>';return;}
+      const adj=mi===0?100:Math.min(100,Math.max(55,v+segAdj));
+      const pct=mi===0?100:adj;
+      const intensity=Math.round((pct-55)/45*100);
+      const bg=isDark?`rgba(42,120,214,${(intensity/100)*0.55+0.1})`:`rgba(42,120,214,${(intensity/100)*0.4+0.05})`;
+      html+=`<td style="background:${bg}">${pct}%</td>`;
+    });
+    html+='</tr>';
+  });
+  html+='</tbody></table>';
+  document.getElementById('cohort-wrap').innerHTML=html;
+}
+
+function renderSegBars(){
+  const plan = document.getElementById('plan-filter').value;
+  const pm = plan==='all'?1:PLANS[plan].mult;
+  const seg = document.getElementById('seg-filter').value;
+  const segs = seg==='all'?['smb','mid','ent']:[seg];
+  const vals = segs.map(k=>({...SEGMENTS[k],v:Math.round(SEGMENTS[k].mult*pm*38000)}));
+  const max = Math.max(...vals.map(x=>x.v));
+  let html='';
+  vals.forEach(s=>{
+    const pct=Math.round(s.v/max*100);
+    html+=`<div class="segment-row"><span class="seg-name">${s.name}</span><div class="seg-bar-wrap"><div class="seg-bar" style="width:${pct}%;background:${s.color}"></div></div><span class="seg-val">${fmtMrr(s.v)}</span></div>`;
+  });
+  document.getElementById('seg-bars').innerHTML=html||'<p style="font-size:12px;color:var(--text-muted);padding:12px 0">Select a segment to compare</p>';
+}
+
+function render(){
+  const d=getData();
+  renderKPIs(d);
+  renderMrrChart(d);
+  renderChurnChart(d);
+  renderCohort();
+  renderSegBars();
+}
+
+render();
+</script>
